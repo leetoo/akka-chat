@@ -73,21 +73,21 @@ class SessionsSubsystem(config: AppConfig, chatSubsystem: ChatSubsystem)(implici
     * Outgoing: sessionActor -> outSource -> auth -> serialization -> outStringToWSMessage -> WS
     */
   private def createWSFlow(session: ActorRef): Flow[Message, Message, Any] = {
-    Flow.fromGraph(GraphDSL.create() { implicit b =>
+    Flow.fromGraph(GraphDSL.create() { implicit builder =>
       import GraphDSL.Implicits._
 
-      val inBufferShape: FlowShape[Message, Message] = b.add(inBuffer)
-      val inWSMessageToStringShape: FlowShape[Message, String] = b.add(inWSMessageToString)
-      val inSinkShape: SinkShape[ToSessionStreamElement] = b.add(inSink(session))
+      val inBufferShape: FlowShape[Message, Message] = builder.add(inBuffer)
+      val inWSMessageToStringShape: FlowShape[Message, String] = builder.add(inWSMessageToString)
+      val inSinkShape: SinkShape[ToSessionStreamElement] = builder.add(inSink(session))
 
       val serialization: BidiShape[String, ToSessionStreamElement, FromServer, String] =
-        b.add(new SerializationStage(config))
+        builder.add(new SerializationStage(config))
 
       val authentication: BidiShape[ToSessionStreamElement, ToSessionStreamElement, FromServer, FromServer] =
-        b.add(new AuthenticationStage(config, chatSubsystem.chatActor))
+        builder.add(new AuthenticationStage(config, chatSubsystem.chatActor))
 
-      val outSourceShape: SourceShape[FromServer] = b.add(outSource(session))
-      val outStringToWSMessageShape: FlowShape[String, Message] = b.add(outStringToWSMessage)
+      val outSourceShape: SourceShape[FromServer] = builder.add(outSource(session))
+      val outStringToWSMessageShape: FlowShape[String, Message] = builder.add(outStringToWSMessage)
 
       inBufferShape.out ~> inWSMessageToStringShape ~> serialization.in1
       serialization.out1 ~> authentication.in1
